@@ -82,6 +82,8 @@ void GFX_drawPixel(int16_t x, int16_t y, uint16_t color)
 		LCD_WritePixel(x, y, color);
 }
 
+
+
 void GFX_drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color)
 {
 
@@ -320,6 +322,54 @@ void GFX_setTextBack(uint16_t color)
 {
 	textbgcolor = color;
 }
+
+//own funcs
+
+void GFX_setTextSize(uint8_t size)
+{
+    textsize_x = size;
+    textsize_y = size;
+}
+
+void draw_image_scaled(int x,int y,int width,int height,int scale,const uint16_t *image)
+{
+    for (int row = 0; row < height; row++)
+    {
+        for (int col = 0; col < width; col++)
+        {
+            uint16_t color = image[row * width + col];
+            
+            for (int dy = 0; dy < scale; dy++)
+            {
+                for (int dx = 0; dx < scale; dx++)
+                {
+                    GFX_drawPixel(
+                        x + (col * scale) + dx,
+                        y + (row * scale) + dy,
+                        color
+                    );
+                }
+            }
+        }
+    }
+}
+
+void draw_image(int x,int y,int width,int height,const uint16_t *image)
+{
+    for (int row = 0; row < height; row++)
+    {
+        for (int col = 0; col < width; col++)
+        {
+            GFX_drawPixel(
+                x + col,
+                y + row,
+                image[row * width + col]
+            );
+        }
+    }
+}
+
+//end of own
 
 void GFX_setFont(const GFXfont *f)
 {

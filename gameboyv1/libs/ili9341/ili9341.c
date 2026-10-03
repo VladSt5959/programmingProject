@@ -272,3 +272,4 @@ void LCD_WritePixel(int x, int y, uint16_t col)
 	spi_write16_blocking(ili9341_spi, &col, 1);
 	ILI9341_DeSelect();
 }
+

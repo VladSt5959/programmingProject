@@ -48,6 +48,8 @@ target_link_libraries(gameboyv1
     ili9341
     gfx
 )
+# pico_enable_stdio_usb(your_target 1)
+# pico_enable_stdio_uart(your_target 0)
 
 
 

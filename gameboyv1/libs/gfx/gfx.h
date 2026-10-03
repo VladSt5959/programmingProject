@@ -18,6 +18,7 @@ void GFX_setCursor(int16_t x, int16_t y);
 void GFX_setTextColor(uint16_t color);
 void GFX_setTextBack(uint16_t color);
 void GFX_setFont(const GFXfont *f);
+void GFX_setTextSize(uint8_t size);
 
 void GFX_drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
 void GFX_drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
@@ -40,5 +41,8 @@ void GFX_scrollUp(int n);
 
 uint GFX_getWidth();
 uint GFX_getHeight();
+
+void draw_image_scaled(int x,int y,int width,int height,int scale,const uint16_t *image);
+void draw_image(int x,int y,int width,int height,const uint16_t *image);
 
 #endif

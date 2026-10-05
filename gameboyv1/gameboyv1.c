@@ -1,4 +1,5 @@
 #include "pico/stdlib.h"
+#include "pico/bootrom.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,8 @@
 #include "hardware/dma.h"
 #include "colors.h"
 
+#include "games/snake.h"
+
 #define TFT_DC    20
 #define TFT_CS    17
 #define TFT_RST   21
@@ -21,14 +24,18 @@
 #define TFT_MOSI  19
 // #define TFT_MISO  16
 
-#define BTN_LEFT    2
-#define BTN_RIGHT   3
-#define BTN_UP      4
-#define BTN_DOWN    5
+#define BTN_RELOAD  2
+#define BTN_LEFT    3
+#define BTN_RIGHT   4
+#define BTN_UP      5
+#define BTN_DOWN    6
+
+
 
     int previousCounter = 0;
     int counter = 0;
     char text[2];
+    int inMenu = 1;
 
 
 static const uint16_t mario_16x16[16 * 16] = 
@@ -108,13 +115,8 @@ static const uint16_t settings_gear_16x16[16 * 16] = {
     PURPLE, PURPLE, PURPLE, PURPLE, PURPLE, PURPLE, PURPLE, PURPLE, PURPLE, PURPLE, PURPLE, PURPLE, PURPLE, PURPLE, PURPLE, PURPLE
 };
 
-
-
-
-
-int main()
-{
-    //display init
+void initAll(){
+//display init
     stdio_init_all();
 
     LCD_setPins(
@@ -134,32 +136,12 @@ int main()
     gpio_init(BTN_LEFT);gpio_set_dir(BTN_LEFT, GPIO_IN);gpio_pull_up(BTN_LEFT);
     gpio_init(BTN_RIGHT);gpio_set_dir(BTN_RIGHT, GPIO_IN);gpio_pull_up(BTN_RIGHT);
     gpio_init(BTN_UP);gpio_set_dir(BTN_UP, GPIO_IN);gpio_pull_up(BTN_UP);
-    gpio_init(BTN_DOWN);gpio_set_dir(BTN_DOWN, GPIO_IN);gpio_pull_up(BTN_DOWN);
+    gpio_init(BTN_DOWN);gpio_set_dir(BTN_DOWN, GPIO_IN);gpio_pull_up(BTN_DOWN); 
+    gpio_init(BTN_RELOAD);gpio_set_dir(BTN_RELOAD, GPIO_IN);gpio_pull_up(BTN_RELOAD); 
+}
 
- 
-    // text
-    GFX_setTextColor(WHITE);
-    GFX_setTextBack(BLACK);
-    GFX_setTextSize(2);
-    GFX_setCursor(20, 20);
-    GFX_printf("Pico 2 W Game");
-
-    // draw icons
-    draw_image_scaled(20,  120,  16, 16, 4, coin_16x16);
-    draw_image_scaled(90,  120,  16, 16, 4, tetris_block_16x16);
-    draw_image_scaled(160, 120, 16, 16, 4, mario_16x16);
-    draw_image_scaled(230, 120,  16, 16, 4, settings_gear_16x16);
-
- 
-  
-    // draw frame
-    GFX_flush();
-
-
-
-    while (true)
-    {
-        //read input from btns 
+void readBtns(){
+      //read input from btns 
             //make it as separate function later 
          if (!gpio_get(BTN_UP))
         {
@@ -176,7 +158,7 @@ int main()
             GFX_printf(text);
             GFX_flush();
             
-        }  // need to deal with btn debounce for all of em at a time for future 
+         }  // need to deal with btn debounce for all of em at a time for future 
          if (!gpio_get(BTN_DOWN))
         {
             counter--;
@@ -192,21 +174,70 @@ int main()
             GFX_printf(text);
             GFX_flush();
         }  // need to deal with btn debounce for all of em at a time for future
+        if (!gpio_get(BTN_RELOAD)) {
+                 reset_usb_boot(0, 0);
+        }
+        if(!gpio_get(BTN_RIGHT) && counter== 0){
+            snakeInit();
+            inMenu = 0 ;
+        }
+}
+
+
+int main()
+{
+    initAll();
+
+    if(inMenu == 1){
+          // text
+    GFX_setTextColor(WHITE);
+    GFX_setTextBack(BLACK);
+    GFX_setTextSize(2);
+    GFX_setCursor(20, 20);
+    GFX_printf("Pico 2 W Game");
+
+    // draw icons
+    draw_image_scaled(20,  120,  16, 16, 4, coin_16x16);
+    draw_image_scaled(90,  120,  16, 16, 4, tetris_block_16x16);
+    draw_image_scaled(160, 120, 16, 16, 4, mario_16x16);
+    draw_image_scaled(230, 120,  16, 16, 4, settings_gear_16x16);
+    }
+
+  
+    // draw frame
+    GFX_flush();
+
+
+
+    while (true)
+    {
+        readBtns();
+         
+        if(inMenu == 1){
         
-        // rect to see what option in main menu is choosen 
+                // rect to see what option in main menu is choosen 
         int oldX = 20 + previousCounter * 70;
         int newX = 20 + counter * 70;
         GFX_drawRect(oldX, 120, 70, 70, PURPLE);
         GFX_drawRect(newX, 120, 70, 70, WHITE);
         previousCounter = counter;
-
-
+        }
+        else{
+            snakeRead();
+            snakeUpdate();
+        }
+    
 
         tight_loop_contents();
 
         sleep_ms(10);
     }
 }
+
+//    to enter bootsel just by clickig 1 btn 
+//    if (!gpio_get(BTN_UP)) {
+//                  reset_usb_boot(0, 0);
+//         }
 
 
 // just in case 

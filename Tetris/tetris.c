@@ -7,42 +7,108 @@
 #define BOARD_WIDTH 10       // 10 клітинок по ширині
 #define BOARD_HEIGHT 20      // 20 клітинок по висоті
 
-int canMoveDown(int board[20][10], int figure[4][4], int figureX, int figureY)
+int canmoveDown(int board[20][10], int figure[4][4], int figureX, int figureY)
 {
-    for (int row = 0; row < 4; row++)
+int nextY = figureY + 1;
+for (int row = 0; row < 4; row++)
     {
-        for (int column =0 ; column < 4; column++)
+        for (int column = 0; column < 4; column++)
         {
             if (figure[row][column] == 1)
             {
-            if (figureY + row + 1 >=20)
+                if (nextY + row >= 20)
                 {
-                    return 0; // не можна рухатись вниз, бо досягли нижньої межі
+                    return 0;
                 }
-                      if (board[figureY + row + 1][figureX + column] == 1)
+                if (board[nextY + row][figureX + column] == 1)
                 {
-                    return 0; // не можна рухатись вниз, бо є фігура під поточною
+                    return 0;
                 }
             }
         }
     }
-    return 1; // можна рухатись вниз
+return 1; // можна рухатись вниз
+} 
+    void placeFigure(int board[20][10], int figure[4][4], int figureX, int figureY)
+{
+for (int row = 0; row < 4; row++)
+    {
+        for (int column = 0; column < 4; column++)
+        {
+            if (figure[row][column] == 1)
+            {
+                board[figureY + row][figureX + column] = 1;
+            }
+        }
+    }
 }
+int canmoveLeft(int board[20][10], int figure[4][4], int figureX, int figureY)
+{
+    for (int row = 0; row < 4; row++)
+    {
+        for (int column = 0; column < 4; column++)
+        {
+            if (figure[row][column] == 1)
+            {
+                if (figureX + column - 1 < 0)           
+                {
+                return 0;
+                }
+                if (board[figureY + row][figureX + column - 1] == 1)
+                {
+                return 0;
+                }    
+            }
+        }
+    }
+return 1;
+}
+int canmoveright(int board[20][10], int figure [4][4], int figureX, int figureY)
+ {
+    for (int row = 0; row < 4; row++)
+    {
+        for (int column = 0; column < 4; column++)
+        {
+            if (figure[row][column] == 1)
+            {
+                if (figureX + column + 1 >= 10)
+                {
+                return 0;
+                }
+                if (board[figureY + row][figureX + column + 1] == 1)
+                {
+                return 0;
+                }
+            }
+        }
+    }
+    return 1;
+ }
 int main()
 {
-    int board[20][10] = {0};           // саме поле Tetris
-    int figure [4] [4] = 
+    int board[20][10] = {0};
+    int figure[4][4] =
     {
-     {0, 0, 0, 0},
-     {1, 1, 1, 1},
-     {0, 0, 0, 0},
-     {0, 0, 0, 0}
+        {0, 0, 0, 0},
+        {1, 1, 1, 1},
+        {0, 0, 0, 0},
+        {0, 0, 0, 0}
     };
-    int figureX = 3;  // падає з середини поля
-    int figureY = 0;  // падає зверху поля
-    if (canMoveDown(board, figure, figureX, figureY))
-    {
-        figureY++; // рухаємо фігуру вниз
-    }
 
+    int figureX = 3;
+    int figureY = 0;
+
+    while (canmoveDown(board, figure, figureX, figureY))
+    {
+        figureY++;
+    }
+    placeFigure(board, figure, figureX, figureY);
+    
+    if (canmoveLeft(board, figure, figureX, figureY))
+    {
+        figureX--;
+    }
+    if (canmoveright(board, figure, figureX, figureY))
+        figureX++;
+    return 0;
 }

@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <stdint.h>
+#include "pico/time.h"
+
 #define SCREEN_WIDTH 320     // ширина екрана
 #define SCREEN_HEIGHT 240    // висота екрана
 
@@ -29,19 +32,6 @@ for (int row = 0; row < 4; row++)
     }
 return 1; // можна рухатись вниз
 } 
-    void placeFigure(int board[20][10], int figure[4][4], int figureX, int figureY)
-{
-for (int row = 0; row < 4; row++)
-    {
-        for (int column = 0; column < 4; column++)
-        {
-            if (figure[row][column] == 1)
-            {
-                board[figureY + row][figureX + column] = 1;
-            }
-        }
-    }
-}
 int canmoveLeft(int board[20][10], int figure[4][4], int figureX, int figureY)
 {
     for (int row = 0; row < 4; row++)
@@ -84,6 +74,106 @@ int canmoveright(int board[20][10], int figure [4][4], int figureX, int figureY)
     }
     return 1;
  }
+    void placeFigure(int board[20][10], int figure[4][4], int figureX, int figureY)
+{
+for (int row = 0; row < 4; row++)
+    {
+        for (int column = 0; column < 4; column++)
+        {
+            if (figure[row][column] == 1)
+            {
+                board[figureY + row][figureX + column] = 1;
+            }
+        }
+    }
+}
+
+
+
+int rowfull(int board[20][10], int row)
+{
+    for(int j = 0; j < 10; j++)
+    {
+        if (board[row][j] == 0)
+        {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+
+
+// Видалення заповненого рядка
+ void removeRow(int board[20][10], int row)
+{
+    for (int i = row; i > 0; i--)
+    {
+        for (int j = 0; j < 10; j++)
+        {
+            board[i][j] = board[i-1][j];
+        }
+    }
+    for (int j = 0; j < 10; j++)
+    {
+        board[0][j] = 0;
+    }
+}
+
+
+// Перевірка всіх рядків
+void checkRows(int board[20][10])
+{
+    for (int i = 19; i >= 0; i--)
+    {
+        while (rowfull(board, i))
+        {
+            removeRow(board, i);
+        }
+    }
+}
+
+
+
+
+int canSpawnFigure(int board[20][10], int figure[4][4], int figureX, int figureY)
+{
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            if (figure[i][j] == 1)
+            {
+                if (figureX + j >= 10)
+                {
+                    return 0;
+                }
+
+                if (figureX + j < 0)
+                {
+                    return 0;
+                }
+
+                if (figureY + i >= 20)
+                {
+                    return 0;
+                }
+
+                if (figureY + i < 0)
+                {
+                    return 0;
+                }
+
+                if (board[figureY + i][figureX + j] == 1)
+                {
+                    return 0;
+                }
+            }
+        }
+    }
+    return 1;
+}
+
 int main()
 {
     int board[20][10] = {0};
@@ -98,17 +188,35 @@ int main()
     int figureX = 3;
     int figureY = 0;
 
-    while (canmoveDown(board, figure, figureX, figureY))
+    int gameRunning = 1;
+
+    uint64_t lastFallTime = time_us_64();
+    uint64_t fallInterval = 500000;
+
+    while (gameRunning == 1)
     {
-        figureY++;
+        uint64_t currentTime = time_us_64();
+
+        if (currentTime - lastFallTime >= fallInterval)
+        {
+            if (canmoveDown(board, figure, figureX, figureY))
+            {
+                figureY++;
+            }
+            else
+            {
+                placeFigure(board, figure, figureX, figureY);
+                checkRows(board);
+
+                figureX = 3;
+                figureY = 0;
+                if (canSpawnFigure(board, figure, figureX, figureY) == 0)
+                {
+                    gameRunning = 0;
+                }
+            }
+            lastFallTime = currentTime;
+        }
     }
-    placeFigure(board, figure, figureX, figureY);
-    
-    if (canmoveLeft(board, figure, figureX, figureY))
-    {
-        figureX--;
-    }
-    if (canmoveright(board, figure, figureX, figureY))
-        figureX++;
     return 0;
 }

@@ -32,8 +32,8 @@ void print_board() {
             if (y == car_y && x == 11) {
                 printf ("%c", board [car_y * col + car_x]);
             }
-            if (y > 0 && y < row - 1 && x > 0 && x < col - 1) {
-                printf("%*s", p, "");
+            else if (y > 0 && y < row - 1 && x > 0 && x < col - 1) {
+                    printf("%*s", p, "");
             }
             else {
             printf ("%c", board [y * col + x]);
@@ -43,8 +43,9 @@ void print_board() {
     }
 }
 
-void move_car() {
 
+void move_car(int diffY) {
+    car_y += diffY;
 }
 
 void input() {
@@ -52,10 +53,10 @@ void input() {
     
     switch (dir) {
         case 'w':
-            move_car (0, -1);
+            move_car (-1);
             break;
         case 's':
-            move_car (0, 1);
+            move_car (1);
             break;
     }
 }

@@ -46,12 +46,15 @@ void print_board() {
 
 void move_car(int diffY) {
     car_y += diffY;
+    if (car_y == 0 || car_y == row - 1) {
+        car_y -= diffY;
+    }
 }
 
 void input() {
-    int dir = getchar();
+    int mv = getchar();
     
-    switch (dir) {
+    switch (mv) {
         case 'w':
             move_car (-1);
             break;

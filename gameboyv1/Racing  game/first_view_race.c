@@ -7,6 +7,11 @@
 #define col 30
 #define obst_count 7
 
+int score = 0;
+int next_milestone = 150;
+int milestone_step = 150;
+int game_speed = 88;
+
 char board [row * col];
 int car_x = 6;
 int car_y = 4;
@@ -28,6 +33,14 @@ void spawn_obstacles () {
 void update_obstacles () {
     for (int i = 0; i <= obst_count - 1; i++) {
         obst_x[i] -= 1;
+        if (obst_x[i] == car_x - 1) {
+            score += 10;
+            if (score >= next_milestone && game_speed > 20) {
+                game_speed -= 10;
+                milestone_step += 150;
+                next_milestone += milestone_step;
+            }
+        }
         if (obst_x[i] <= 0) {
             obst_x[i] = col - 2;
             obst_y[i] = rand() % (row - 2) + 1;
@@ -73,6 +86,7 @@ void print_board() {
                 mvaddch(y, x, board[y * col + x]);
         }
     }
+    mvprintw(row, 0, "Score: %d | Next speed up: %d", score, next_milestone);
     refresh();
 }
 
@@ -115,12 +129,12 @@ int main () {
     noecho();
     keypad(stdscr, TRUE);
     curs_set(0);
-    timeout(50);
 
     srand(time(NULL));
     spawn_obstacles ();
 
     while (!isGameOver) {
+        timeout(game_speed);
         fill_board ();
         input ();
         check_collision ();

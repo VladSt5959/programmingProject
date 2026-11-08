@@ -3,14 +3,15 @@
 #include <ncurses.h>
 #include <time.h>
 
-#define row 13
-#define col 50
+#define row 9
+#define col 30
+#define obst_count 7
 
 char board [row * col];
-int car_x = 11;
-int car_y = 6;
-int obst_x;
-int obst_y;
+int car_x = 6;
+int car_y = 4;
+int obst_x[obst_count];
+int obst_y[obst_count];
 int isGameOver = 0;
 
 void draw_car () {
@@ -18,24 +19,35 @@ void draw_car () {
 }
 
 void spawn_obstacles () {
-    obst_x = col - 2;
-    obst_y = rand() % (row - 2) + 1;
+    for (int i = 0; i <= obst_count - 1; i++) {
+        obst_x[i] = (col - 2) + i * (col / obst_count);
+        obst_y[i] = rand() % (row - 2) + 1;
+    }
 }
 
 void update_obstacles () {
-    obst_x--;
-    if (obst_x <= 0) {
-        spawn_obstacles ();
+    for (int i = 0; i <= obst_count - 1; i++) {
+        obst_x[i] -= 1;
+        if (obst_x[i] <= 0) {
+            obst_x[i] = col - 2;
+            obst_y[i] = rand() % (row - 2) + 1;
+        }
     }
 }
 
 void draw_obstacles () {
-    board [obst_y * col + obst_x] = 'X';
+    for (int i = 0; i <= obst_count - 1; i++) {
+        if (obst_x[i] > 0 && obst_x[i] < col - 1) {
+            board [obst_y[i] * col + obst_x[i]] = 'X';
+        }
+    }
 }
 
 void check_collision () {
-    if (car_x == obst_x && car_y == obst_y) {
+    for (int i = 0; i <= obst_count - 1; i++) {
+        if (car_x == obst_x[i] && car_y == obst_y[i]) {
         isGameOver = 1;
+        }
     }
 }
 
@@ -103,7 +115,7 @@ int main () {
     noecho();
     keypad(stdscr, TRUE);
     curs_set(0);
-    timeout(100);
+    timeout(50);
 
     srand(time(NULL));
     spawn_obstacles ();
@@ -111,6 +123,7 @@ int main () {
     while (!isGameOver) {
         fill_board ();
         input ();
+        check_collision ();
         update_obstacles ();
         check_collision ();
         draw_car ();

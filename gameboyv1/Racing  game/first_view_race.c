@@ -1,6 +1,7 @@
 #include <stdio.h>
-#include <stdbool.h>
+#include <stdlib.h>
 #include <ncurses.h>
+#include <time.h>
 
 #define row 13
 #define col 50
@@ -8,10 +9,34 @@
 char board [row * col];
 int car_x = 11;
 int car_y = 6;
+int obst_x;
+int obst_y;
 int isGameOver = 0;
 
 void draw_car () {
-    board [car_y * col + car_x] = '.';
+    board [car_y * col + car_x] = '-';
+}
+
+void spawn_obstacles () {
+    obst_x = col - 2;
+    obst_y = rand() % (row - 2) + 1;
+}
+
+void update_obstacles () {
+    obst_x--;
+    if (obst_x <= 0) {
+        spawn_obstacles ();
+    }
+}
+
+void draw_obstacles () {
+    board [obst_y * col + obst_x] = 'X';
+}
+
+void check_collision () {
+    if (car_x == obst_x && car_y == obst_y) {
+        isGameOver = 1;
+    }
 }
 
 void fill_board() {
@@ -66,7 +91,7 @@ void input() {
                 break;
             case 'q':
             case 'Q':
-                isGameOver = 0;
+                isGameOver = 1;
                 break;
         }
     }
@@ -80,11 +105,17 @@ int main () {
     curs_set(0);
     timeout(100);
 
+    srand(time(NULL));
+    spawn_obstacles ();
+
     while (!isGameOver) {
         fill_board ();
-        draw_car ();
-        print_board ();
         input ();
+        update_obstacles ();
+        check_collision ();
+        draw_car ();
+        draw_obstacles ();
+        print_board ();
     };
 
     endwin(); 

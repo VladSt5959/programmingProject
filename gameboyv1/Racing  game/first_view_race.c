@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <ncurses.h>
 
 #define row 13
 #define col 50
@@ -7,7 +8,7 @@
 char board [row * col];
 int car_x = 11;
 int car_y = 6;
-int GameOver = 0;
+int isGameOver = 0;
 
 void draw_car () {
     board [car_y * col + car_x] = '.';
@@ -18,29 +19,24 @@ void fill_board() {
     for (y = 0; y < row; y++) {
         for (x = 0; x < col; x++) {
             if (x == 0 || y == 0 || y == row - 1 || x == col - 1) {
-            board [y * col + x] = '#';
+                board [y * col + x] = '#';
             } 
+            else {
+                board [y * col + x] = ' ';
+            }
         }
     }
 }
 
 void print_board() {
+    erase();
     int x, y;
-    int p = 1;
     for (y = 0; y < row; y++) {
         for (x = 0; x < col; x++) {
-            if (y == car_y && x == 11) {
-                printf ("%c", board [car_y * col + car_x]);
-            }
-            else if (y > 0 && y < row - 1 && x > 0 && x < col - 1) {
-                    printf("%*s", p, "");
-            }
-            else {
-            printf ("%c", board [y * col + x]);
-            }
+                mvaddch(y, x, board[y * col + x]);
         }
-        printf ("\n");
     }
+    refresh();
 }
 
 
@@ -52,24 +48,45 @@ void move_car(int diffY) {
 }
 
 void input() {
-    int mv = getchar();
-    
-    switch (mv) {
-        case 'w':
-            move_car (-1);
-            break;
-        case 's':
-            move_car (1);
-            break;
+    int mv = getch();
+    if (mv == ERR) {
+        return;
+    }
+    else {
+        switch (mv) {
+            case 'w':
+            case 'W':
+            case KEY_UP:
+                move_car (-1);
+                break;
+            case 's':
+            case 'S':
+            case KEY_DOWN:
+                move_car (1);
+                break;
+            case 'q':
+            case 'Q':
+                isGameOver = 0;
+                break;
+        }
     }
 }
 
 int main () {
-    while (true) {
+    initscr();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+    curs_set(0);
+    timeout(100);
+
+    while (!isGameOver) {
         fill_board ();
         draw_car ();
         print_board ();
         input ();
     };
+
+    endwin(); 
     return 0;
 }

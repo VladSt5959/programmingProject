@@ -8,6 +8,7 @@
 #define obst_count 10
 
 int score = 0;
+int high_score = 0;
 int next_milestone = 150;
 int milestone_step = 150;
 int game_speed = 88;
@@ -134,6 +135,45 @@ void input() {
     }
 }
 
+void reset_game () {
+    score = 0;
+    next_milestone = 150;
+    milestone_step = 150;
+    game_speed = 88;
+    car_x = 6;
+    car_y = 4;
+    isGameOver = 0;
+
+    spawn_obstacles();
+}
+
+void game_over_screen() {
+    if (score > high_score) {
+        high_score = score;
+    }
+    erase();
+    mvprintw(2, (col / 2) - 5, "GAME OVER!");
+    mvprintw(4, (col / 2) - 8, "Final Score: %d", score);
+    mvprintw(6, (col / 2) - 9, "Highest Score: %d", high_score);
+    mvprintw(8, (col / 2) - 15, "Press R to Restart or Q to Quit");
+    refresh();
+
+    timeout(-1);
+
+    while (isGameOver) {
+        int r = getch();
+        switch (r) {
+            case 'r':
+            case 'R':
+                reset_game();
+                break;
+            case 'q':
+            case 'Q':
+                return;
+        }
+    }
+}
+
 int main () {
     initscr();
     cbreak();
@@ -154,6 +194,10 @@ int main () {
         draw_car ();
         draw_obstacles ();
         print_board ();
+
+        if (isGameOver) {
+            game_over_screen();
+        }
     };
 
     endwin(); 

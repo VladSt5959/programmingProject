@@ -5,7 +5,7 @@
 
 #define row 9
 #define col 30
-#define obst_count 7
+#define obst_count 10
 
 int score = 0;
 int next_milestone = 150;
@@ -20,12 +20,17 @@ int obst_y[obst_count];
 int isGameOver = 0;
 
 void draw_car () {
-    board [car_y * col + car_x] = '-';
+    board [car_y * col + car_x] = 'H';
 }
 
 void spawn_obstacles () {
     for (int i = 0; i <= obst_count - 1; i++) {
-        obst_x[i] = (col - 2) + i * (col / obst_count);
+        if (i == 0) {
+            obst_x[i] = col - 2;
+        }
+        else {
+            obst_x[i] = obst_x[i - 1] + (rand() % 5 + 1);
+        }
         obst_y[i] = rand() % (row - 2) + 1;
     }
 }
@@ -42,7 +47,13 @@ void update_obstacles () {
             }
         }
         if (obst_x[i] <= 0) {
-            obst_x[i] = col - 2;
+            int max_x = col - 2;
+            for (int j = 0; j <= obst_count - 1; j++) {
+                if (obst_x[j] > max_x) {
+                    max_x = obst_x[j];
+                }
+            }
+            obst_x[i] = max_x + (rand() % 5 + 1);
             obst_y[i] = rand() % (row - 2) + 1;
         }
     }

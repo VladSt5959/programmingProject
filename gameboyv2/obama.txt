@@ -1,0 +1,33 @@
+# Settings integration and wiring
+
+## Console uptime and automatic brightness
+
+`settingsUpdate()` displays time since Pico boot, so opening Settings does not restart the counter. To keep photoresistor brightness updating while another screen or game is active, declare `void settingsService(void);` in `settings.h` and call it once per main-loop pass. The source currently assumes the divider is wired so brighter light produces a higher ADC reading; reverse the mapping in `settingsService()` if your divider is wired the other way.
+
+For the Pico/RP2040 pinout assumed by the source, A1 is GPIO27 / ADC1. Wire the light divider as:
+
+```text
+3V3 ---- photoresistor ----+---- A1 / GPIO27
+                           |
+                          10kΩ
+                           |
+GND -----------------------+
+```
+
+Add `hardware_adc` to the firmware target's Pico SDK link libraries. The ADC API and RP2040 pin mapping are documented by [Raspberry Pi's Pico SDK](https://www.raspberrypi.com/documentation/pico-sdk/hardware.html).
+
+## Optional battery estimate
+
+The TP4056 is a single-cell charger, not a fuel gauge, so the percentage is only a rough estimate based on battery voltage. It is least reliable while charging or while the console draws a changing load. The charger datasheet describes charge regulation and status outputs, not a state-of-charge measurement ([TP4056 datasheet](https://cdn.sparkfun.com/datasheets/Prototyping/TP4056.pdf)).
+
+To enable the optional code, fit a divider and set `SETTINGS_BATTERY_SENSE_ENABLED` to `1`:
+
+```text
+TP4056 B+ ---- 100kΩ ----+---- GPIO26 / ADC0
+                         |
+                        100kΩ
+                         |
+TP4056 B- / GND ----------+---- Pico GND
+```
+
+This halves a 4.2V cell voltage to about 2.1V at the ADC. **Do not connect B+ directly to an RP2040 ADC pin.** The Pico ADC inputs are on GPIO26–29 and must stay within the board's I/O supply range ([Pico datasheet](https://pip-assets.raspberrypi.com/categories/610-raspberry-pi-pico/documents/RP-008307-DS-2-pico-datasheet.pdf)). The percentage curve in the source is approximate and may need calibration for your battery and divider.

@@ -1,33 +1,107 @@
+#include "tetris.h"
+#include "colors.h"
+#include "gfx.h"
+#include "pico/stdlib.h"
+#include "libs/ownLibs/btnReader.h"
 #include <stdlib.h>
 #include <stdint.h>
-#include "pico/time.h"
-#include "hardware/gpio.h"
-#include "pico/stdlib.h"
-#include "ili9341.h"
+#include <string.h>
 
-// Тимчасові номери GPIO
-#define BUTTON_LEFT 14
-#define BUTTON_RIGHT 15
-#define BUTTON_DOWN 16
-#define BUTTON_ROTATE 17
+#define CELL_SIZE 20
 
-#define SCREEN_WIDTH 320     // ширина екрана
-#define SCREEN_HEIGHT 240    // висота екрана
+#define BOARD_WIDTH 10
+#define BOARD_HEIGHT 12
 
-#define CELL_SIZE 12         // одна клітинка 12×12 px
-
-#define BOARD_WIDTH 10       // 10 клітинок по ширині
-#define BOARD_HEIGHT 20      // 20 клітинок по висоті
-
-#define BOARD_START_X 20
+#define BOARD_START_X 8
 #define BOARD_START_Y 0
 
 #define COLOR_BACKGROUND 0x0884
-#define COLOR_BOARD      0x1947
+#define COLOR_BOARD      0x0000
 #define COLOR_BORDER     0x9517
-#define COLOR_GRID       0x42AD
 
-int canmoveDown(int board[20][10], int figure[4][4], int figureX, int figureY)
+#define COLOR_PANEL      0x1106
+#define COLOR_TEXT       0xFFFF
+#define COLOR_ACCENT     0x07FF
+#define COLOR_GAME_OVER  0xF800
+#define POINTS_PER_ROW   100
+
+static uint32_t score = 0;
+static uint32_t clearedLines = 0;
+
+static int board[BOARD_HEIGHT][BOARD_WIDTH];
+static int figure[4][4];
+static int figureX, figureY, figureType;
+static int gameRunning, needRedraw;
+static bool previousRotate;
+static uint64_t lastFallTime;
+static const uint64_t fallInterval = 500000;
+static uint64_t lastMoveTime;
+static uint16_t previousBoard[BOARD_HEIGHT][BOARD_WIDTH];
+
+static int figures[7][4][4] =
+{
+    {
+    {0, 0, 0, 0},
+    {0, 1, 1, 0},
+    {0, 1, 1, 0},
+    {0, 0, 0, 0}
+    },
+
+    {
+    {0, 0, 0, 0},
+    {1, 1, 1, 1},
+    {0, 0, 0, 0},
+    {0, 0, 0, 0}
+    },
+
+    {
+    {0, 1, 0, 0},
+    {1, 1, 1, 0},
+    {0, 0, 0, 0},
+    {0, 0, 0, 0}
+    },
+
+    {
+    {0, 1, 1, 0},
+    {1, 1, 0, 0},
+    {0, 0, 0, 0},
+    {0, 0, 0, 0}
+    },
+
+    {
+    {1, 1, 0, 0},
+    {0, 1, 1, 0},
+    {0, 0, 0, 0},
+    {0, 0, 0, 0}
+    },
+
+    {
+    {1, 0, 0, 0},
+    {1, 1, 1, 0},
+    {0, 0, 0, 0},
+    {0, 0, 0, 0}
+    },
+
+    {
+    {0, 0, 1, 0},
+    {1, 1, 1, 0},
+    {0, 0, 0, 0},
+    {0, 0, 0, 0}
+    }
+};
+
+static const uint16_t figureColors[7] =
+{
+    0xFFE0,
+    0x07FF,
+    0xF81F,
+    0x07E0,
+    0xF800,
+    0x001F,
+    0xFD20
+};
+
+int canmoveDown(int board[BOARD_HEIGHT][BOARD_WIDTH], int figure[4][4], int figureX, int figureY)
 {
 int nextY = figureY + 1;
 for (int row = 0; row < 4; row++)
@@ -36,7 +110,7 @@ for (int row = 0; row < 4; row++)
         {
             if (figure[row][column] == 1)
             {
-                if (nextY + row >= 20)
+                if (nextY + row >= BOARD_HEIGHT)
                 {
                     return 0;
                 }
@@ -47,9 +121,9 @@ for (int row = 0; row < 4; row++)
             }
         }
     }
-return 1; // можна рухатись вниз
-} 
-int canmoveLeft(int board[20][10], int figure[4][4], int figureX, int figureY)
+return 1;
+}
+int canmoveLeft(int board[BOARD_HEIGHT][BOARD_WIDTH], int figure[4][4], int figureX, int figureY)
 {
     for (int row = 0; row < 4; row++)
     {
@@ -57,20 +131,20 @@ int canmoveLeft(int board[20][10], int figure[4][4], int figureX, int figureY)
         {
             if (figure[row][column] == 1)
             {
-                if (figureX + column - 1 < 0)           
+                if (figureX + column - 1 < 0)
                 {
                 return 0;
                 }
                 if (board[figureY + row][figureX + column - 1] != 0)
                 {
                 return 0;
-                }    
+                }
             }
         }
     }
 return 1;
 }
-int canmoveright(int board[20][10], int figure [4][4], int figureX, int figureY)
+int canmoveright(int board[BOARD_HEIGHT][BOARD_WIDTH], int figure [4][4], int figureX, int figureY)
  {
     for (int row = 0; row < 4; row++)
     {
@@ -78,7 +152,7 @@ int canmoveright(int board[20][10], int figure [4][4], int figureX, int figureY)
         {
             if (figure[row][column] == 1)
             {
-                if (figureX + column + 1 >= 10)
+                if (figureX + column + 1 >= BOARD_WIDTH)
                 {
                 return 0;
                 }
@@ -91,7 +165,7 @@ int canmoveright(int board[20][10], int figure [4][4], int figureX, int figureY)
     }
     return 1;
  }
-    void placeFigure(int board[20][10], int figure[4][4], int figureX, int figureY, uint16_t color)
+    void placeFigure(int board[BOARD_HEIGHT][BOARD_WIDTH], int figure[4][4], int figureX, int figureY, uint16_t color)
 {
 for (int row = 0; row < 4; row++)
     {
@@ -105,11 +179,9 @@ for (int row = 0; row < 4; row++)
     }
 }
 
-
-
-int rowfull(int board[20][10], int row)
+int rowfull(int board[BOARD_HEIGHT][BOARD_WIDTH], int row)
 {
-    for(int j = 0; j < 10; j++)
+    for(int j = 0; j < BOARD_WIDTH; j++)
     {
         if (board[row][j] == 0)
         {
@@ -119,41 +191,37 @@ int rowfull(int board[20][10], int row)
     return 1;
 }
 
-
-
-// Видалення заповненого рядка
- void removeRow(int board[20][10], int row)
+ void removeRow(int board[BOARD_HEIGHT][BOARD_WIDTH], int row)
 {
     for (int i = row; i > 0; i--)
     {
-        for (int j = 0; j < 10; j++)
+        for (int j = 0; j < BOARD_WIDTH; j++)
         {
             board[i][j] = board[i-1][j];
         }
     }
-    for (int j = 0; j < 10; j++)
+    for (int j = 0; j < BOARD_WIDTH; j++)
     {
         board[0][j] = 0;
     }
 }
 
-
-// Перевірка всіх рядків
-void checkRows(int board[20][10])
+void checkRows(int board[BOARD_HEIGHT][BOARD_WIDTH])
 {
-    for (int i = 19; i >= 0; i--)
+    for (int i = BOARD_HEIGHT - 1; i >= 0; i--)
     {
         while (rowfull(board, i))
         {
             removeRow(board, i);
+
+            score += POINTS_PER_ROW;
+            clearedLines++;
+
         }
     }
 }
 
-
-
-
-int canSpawnFigure(int board[20][10], int figure[4][4], int figureX, int figureY)
+int canSpawnFigure(int board[BOARD_HEIGHT][BOARD_WIDTH], int figure[4][4], int figureX, int figureY)
 {
     for (int i = 0; i < 4; i++)
     {
@@ -161,7 +229,7 @@ int canSpawnFigure(int board[20][10], int figure[4][4], int figureX, int figureY
         {
             if (figure[i][j] == 1)
             {
-                if (figureX + j >= 10)
+                if (figureX + j >= BOARD_WIDTH)
                 {
                     return 0;
                 }
@@ -171,7 +239,7 @@ int canSpawnFigure(int board[20][10], int figure[4][4], int figureX, int figureY
                     return 0;
                 }
 
-                if (figureY + i >= 20)
+                if (figureY + i >= BOARD_HEIGHT)
                 {
                     return 0;
                 }
@@ -191,9 +259,7 @@ int canSpawnFigure(int board[20][10], int figure[4][4], int figureX, int figureY
     return 1;
 }
 
-
-
-void rotateFigure(int board[20][10], int figure[4][4], int figureX, int figureY)
+void rotateFigure(int board[BOARD_HEIGHT][BOARD_WIDTH], int figure[4][4], int figureX, int figureY)
 {
     int rotated[4][4] = {0};
     for (int row = 0; row < 4; row++)
@@ -228,49 +294,108 @@ int genrrateFigure(int figures[7][4][4], int figure[4][4])
     return randomFigure;
 }
 
-//Ініціалізація кнопок
-void initButton(uint pin)
+static uint16_t blockShade(uint16_t color, int light)
 {
-    gpio_init(pin);
-    gpio_set_dir(pin, GPIO_IN);
-    gpio_pull_up(pin);
+    int r = (color >> 11) & 31;
+    int g = (color >> 5) & 63;
+    int b = color & 31;
+
+    if (light)
+    {
+        r += (31 - r) / 2;
+        g += (63 - g) / 2;
+        b += (31 - b) / 2;
+    }
+    else
+    {
+        r /= 3;
+        g /= 3;
+        b /= 3;
+    }
+
+    return (uint16_t)((r << 11) | (g << 5) | b);
 }
 
+static void drawBlock(int x, int y, uint16_t color)
+{
+    uint16_t lightColor = blockShade(color, 1);
+    uint16_t darkColor = blockShade(color, 0);
 
-// Малювання поля та кольорових фігур
-void drawTetris(int board[20][10], int figure[4][4],
+    GFX_fillRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2, color);
+    GFX_fillRect(x + 1, y + 1, CELL_SIZE - 2, 2, lightColor);
+    GFX_fillRect(x + 1, y + 3, 2, CELL_SIZE - 5, lightColor);
+    GFX_fillRect(x + CELL_SIZE - 3, y + 3, 2, CELL_SIZE - 5, darkColor);
+    GFX_fillRect(x + 1, y + CELL_SIZE - 3, CELL_SIZE - 2, 2, darkColor);
+}
+
+static void drawStats(void)
+{
+    GFX_fillRect(222, 97, 86, 18, COLOR_PANEL);
+    GFX_setTextBack(COLOR_PANEL);
+    GFX_setTextColor(COLOR_ACCENT);
+
+    GFX_setTextSize(score > 999999u ? 1 : 2);
+    GFX_setCursor(227, 98);
+    GFX_printf("%lu", (unsigned long)score);
+
+    GFX_fillRect(222, 157, 86, 18, COLOR_PANEL);
+    GFX_setTextSize(clearedLines > 999999u ? 1 : 2);
+    GFX_setCursor(227, 158);
+    GFX_printf("%lu", (unsigned long)clearedLines);
+}
+
+static void drawGameOver(void)
+{
+    GFX_setTextBack(COLOR_PANEL);
+    GFX_setTextColor(COLOR_GAME_OVER);
+    GFX_setTextSize(1);
+    GFX_setCursor(227, 193);
+    GFX_printf("GAME OVER");
+    GFX_setTextColor(COLOR_TEXT);
+    GFX_setCursor(227, 207);
+    GFX_printf("A: restart");
+    GFX_setCursor(227, 218);
+    GFX_printf("B: menu");
+}
+
+static void drawInterface(void)
+{
+    GFX_fillRect(BOARD_START_X - 2, BOARD_START_Y, 2,
+                 BOARD_HEIGHT * CELL_SIZE, COLOR_BORDER);
+    GFX_fillRect(BOARD_START_X + BOARD_WIDTH * CELL_SIZE, BOARD_START_Y,
+                 2, BOARD_HEIGHT * CELL_SIZE, COLOR_BORDER);
+
+    GFX_fillRect(217, 8, 95, 224, COLOR_BORDER);
+    GFX_fillRect(219, 10, 91, 220, COLOR_PANEL);
+    GFX_setTextBack(COLOR_PANEL);
+    GFX_setTextColor(COLOR_ACCENT);
+    GFX_setTextSize(2);
+    GFX_setCursor(228, 24);
+    GFX_printf("TETRIS");
+    GFX_fillRect(222, 52, 85, 1, COLOR_BORDER);
+    GFX_setTextColor(COLOR_TEXT);
+    GFX_setTextSize(2);
+    GFX_setCursor(227, 70);
+    GFX_printf("SCORE");
+    GFX_setCursor(227, 130);
+    GFX_printf("LINES");
+    GFX_fillRect(222, 183, 85, 1, COLOR_BORDER);
+    drawStats();
+}
+
+void drawTetris(int board[BOARD_HEIGHT][BOARD_WIDTH], int figure[4][4],
                 int figureX, int figureY, uint16_t currentColor)
 {
-    LCD_fillRect(
-        BOARD_START_X,
-        BOARD_START_Y,
-        BOARD_WIDTH * CELL_SIZE,
-        BOARD_HEIGHT * CELL_SIZE,
-        COLOR_BOARD
-    );
+    uint16_t currentBoard[BOARD_HEIGHT][BOARD_WIDTH];
 
-    // Малюємо зафіксовані блоки
     for (int i = 0; i < BOARD_HEIGHT; i++)
     {
         for (int j = 0; j < BOARD_WIDTH; j++)
         {
-            if (board[i][j] != 0)
-            {
-                int screenX = BOARD_START_X + j * CELL_SIZE;
-                int screenY = BOARD_START_Y + i * CELL_SIZE;
-
-                LCD_fillRect(
-                    screenX + 1,
-                    screenY + 1,
-                    CELL_SIZE - 2,
-                    CELL_SIZE - 2,
-                    (uint16_t)board[i][j]
-                );
-            }
+            currentBoard[i][j] = (uint16_t)board[i][j];
         }
     }
 
-    // Малюємо поточну фігуру
     for (int i = 0; i < 4; i++)
     {
         for (int j = 0; j < 4; j++)
@@ -283,197 +408,163 @@ void drawTetris(int board[20][10], int figure[4][4],
                 if (x >= 0 && x < BOARD_WIDTH &&
                     y >= 0 && y < BOARD_HEIGHT)
                 {
-                    int screenX = BOARD_START_X + x * CELL_SIZE;
-                    int screenY = BOARD_START_Y + y * CELL_SIZE;
-
-                    LCD_fillRect(
-                        screenX + 1,
-                        screenY + 1,
-                        CELL_SIZE - 2,
-                        CELL_SIZE - 2,
-                        currentColor
-                    );
+                    currentBoard[y][x] = currentColor;
                 }
+            }
+        }
+    }
+
+    for (int i = 0; i < BOARD_HEIGHT; i++)
+    {
+        for (int j = 0; j < BOARD_WIDTH; j++)
+        {
+            if (currentBoard[i][j] != previousBoard[i][j])
+            {
+                int screenX = BOARD_START_X + j * CELL_SIZE;
+                int screenY = BOARD_START_Y + i * CELL_SIZE;
+
+                if (currentBoard[i][j] == 0)
+                {
+                    GFX_fillRect(screenX, screenY, CELL_SIZE, CELL_SIZE,
+                                 COLOR_BOARD);
+                }
+                else
+                {
+                    drawBlock(screenX, screenY, currentBoard[i][j]);
+                }
+
+                previousBoard[i][j] = currentBoard[i][j];
             }
         }
     }
 }
 
-
-
-
-int main()
+void tetrisInit(void)
 {
-    int board[20][10] = {0};
-    int figure[4][4] = {0};
+    memset(board, 0, sizeof(board));
+    memset(figure, 0, sizeof(figure));
+    memset(previousBoard, 0, sizeof(previousBoard));
+    figureX = 3;
+    figureY = 0;
+    score = 0;
+    clearedLines = 0;
+    gameRunning = 1;
+    needRedraw = 0;
+    previousRotate = false;
 
-    int figures[7][4][4] =
-    {
-        {
-        {0, 0, 0, 0},
-        {0, 1, 1, 0},
-        {0, 1, 1, 0},
-        {0, 0, 0, 0}
-        },
-
-        {
-        {0, 0, 0, 0},
-        {1, 1, 1, 1},
-        {0, 0, 0, 0},
-        {0, 0, 0, 0}
-        },
-
-        {
-        {0, 1, 0, 0},
-        {1, 1, 1, 0},
-        {0, 0, 0, 0},
-        {0, 0, 0, 0}
-        },
-
-        {
-        {0, 1, 1, 0},
-        {1, 1, 0, 0},
-        {0, 0, 0, 0},
-        {0, 0, 0, 0}
-        },
-
-        {
-        {1, 1, 0, 0},
-        {0, 1, 1, 0},
-        {0, 0, 0, 0},
-        {0, 0, 0, 0}
-        },
-
-        {
-        {1, 0, 0, 0},
-        {1, 1, 1, 0},
-        {0, 0, 0, 0},
-        {0, 0, 0, 0}
-        },
-
-        {
-        {0, 0, 1, 0},
-        {1, 1, 1, 0},
-        {0, 0, 0, 0},
-        {0, 0, 0, 0}
-        }
-    };
-
-    uint16_t figureColors[7] =
-    {
-        0xFFE0, // O - жовтий
-        0x07FF, // I - блакитний
-        0x780F, // T - фіолетовий
-        0x07E0, // S - зелений
-        0xF800, // Z - червоний
-        0x001F, // J - синій
-        0xFD20  // L - помаранчевий
-    };
-
-    int figureX = 3;
-    int figureY = 0;
-
-    int gameRunning = 1;
-
-        // Попередній стан кнопки обертання
-    int previousRotate = 1;
-
-        // Ініціалізація кнопок
-    initButton(BUTTON_LEFT);
-    initButton(BUTTON_RIGHT);
-    initButton(BUTTON_DOWN);
-    initButton(BUTTON_ROTATE);
-
-    uint64_t lastFallTime = time_us_64();
-    uint64_t fallInterval = 500000;
     srand((unsigned int)time_us_64());
-    int figureType = genrrateFigure(figures, figure);
+    figureType = genrrateFigure(figures, figure);
 
-    //призначення контактів дисплея ILI9341
-    LCD_setPins(20, 21, 22, 18, 19);
-    LCD_setSPIperiph(spi0);
-    LCD_initDisplay();
-    LCD_setRotation(1);
-    LCD_fillScreen(COLOR_BACKGROUND);
-
+    GFX_fillScreen(COLOR_BACKGROUND);
+    GFX_fillRect(BOARD_START_X, BOARD_START_Y,
+                 BOARD_WIDTH * CELL_SIZE, BOARD_HEIGHT * CELL_SIZE,
+                 COLOR_BOARD);
+    drawInterface();
     drawTetris(board, figure, figureX, figureY, figureColors[figureType]);
-    // Головний ігровий цикл
-    while (gameRunning == 1)
+    GFX_flush();
+    lastFallTime = time_us_64();
+    lastMoveTime = lastFallTime - 20000;
+}
+
+int tetrisRead(void)
+{
+    if (btnPressed(BTN_B) || btnPressed(BTN_MENU) || btnPressed(BTN_MENU2))
+        return 1;
+
+    if (!gameRunning)
     {
-        int needRedraw = 0;
-        uint64_t currentTime = time_us_64();
-
-        // Рух вліво
-        if (gpio_get(BUTTON_LEFT) == 0)
+        if (btnPressed(BTN_A))
         {
-            if (canmoveLeft(board, figure, figureX, figureY) == 1)
-            {
-                figureX--;
-                needRedraw = 1;
-            }
+            tetrisInit();
+            previousRotate = true;
         }
-        // Рух вправо
-        if (gpio_get(BUTTON_RIGHT) == 0)
-        {
-            if (canmoveright(board, figure, figureX, figureY) == 1)
-            {
-                figureX++;
-                needRedraw = 1;
-            }
-        }
-        // Рух вниз
-        if (gpio_get(BUTTON_DOWN) == 0)
-        {
-            if (canmoveDown(board, figure, figureX, figureY) == 1)
-            {
-                figureY++;
-                needRedraw = 1;
-            }
-        }
-
-        // Обертання фігури
-        int currentRotate = gpio_get(BUTTON_ROTATE);
-
-        if (previousRotate == 1 && currentRotate == 0)
-        {
-            rotateFigure(board, figure, figureX, figureY);
-            needRedraw = 1;
-        }
-
-        previousRotate = currentRotate;
-
-        // Автоматичне падіння
-        if (currentTime - lastFallTime >= fallInterval)
-        {
-            if (canmoveDown(board, figure, figureX, figureY))
-            {
-                figureY++;
-                needRedraw = 1;
-            }
-            else
-            {
-                placeFigure(board, figure, figureX, figureY, figureColors[figureType]);
-                checkRows(board);
-
-                figureType = genrrateFigure(figures, figure);
-
-                figureX = 3;
-                figureY = 0;
-                if (canSpawnFigure(board, figure, figureX, figureY) == 0)
-                {
-                    gameRunning = 0;
-                }
-            }
-            lastFallTime = currentTime;
-            needRedraw = 1;
-        }
-
-        if (needRedraw == 1 && gameRunning == 1)
-        {
-            drawTetris(board, figure, figureX, figureY,
-                       figureColors[figureType]);
-        }
-        sleep_ms(20);
+        return 0;
     }
+
+    bool left = btnPressed(BTN_LEFT);
+    bool right = btnPressed(BTN_RIGHT);
+    bool down = btnPressed(BTN_DOWN);
+    bool up = btnPressed(BTN_UP);
+    bool a = btnPressed(BTN_A);
+    bool currentRotate = up || a;
+    uint64_t currentTime = time_us_64();
+
+    if ((left || right || down) && currentTime - lastMoveTime >= 20000)
+    {
+        if (left && canmoveLeft(board, figure, figureX, figureY) == 1)
+        {
+            figureX--;
+            needRedraw = 1;
+        }
+        if (right && canmoveright(board, figure, figureX, figureY) == 1)
+        {
+            figureX++;
+            needRedraw = 1;
+        }
+        if (down && canmoveDown(board, figure, figureX, figureY) == 1)
+        {
+            figureY++;
+            needRedraw = 1;
+        }
+        lastMoveTime = currentTime;
+    }
+
+    if (!previousRotate && currentRotate)
+    {
+        rotateFigure(board, figure, figureX, figureY);
+        needRedraw = 1;
+    }
+    previousRotate = currentRotate;
     return 0;
+}
+
+void tetrisUpdate(void)
+{
+    if (!gameRunning) return;
+    uint64_t currentTime = time_us_64();
+
+    if (currentTime - lastFallTime >= fallInterval)
+    {
+        if (canmoveDown(board, figure, figureX, figureY))
+        {
+            figureY++;
+            needRedraw = 1;
+        }
+        else
+        {
+            placeFigure(board, figure, figureX, figureY, figureColors[figureType]);
+            uint32_t previousLines = clearedLines;
+            checkRows(board);
+
+            if (clearedLines != previousLines)
+            {
+                drawStats();
+            }
+
+            figureType = genrrateFigure(figures, figure);
+            figureX = 3;
+            figureY = 0;
+            if (canSpawnFigure(board, figure, figureX, figureY) == 0)
+            {
+                gameRunning = 0;
+            }
+        }
+        lastFallTime = currentTime;
+        needRedraw = 1;
+    }
+
+    if (!gameRunning)
+    {
+        int emptyFigure[4][4] = {0};
+        drawTetris(board, emptyFigure, 0, 0, 0);
+        drawGameOver();
+        GFX_flush();
+        needRedraw = 0;
+    }
+    else if (needRedraw == 1)
+    {
+        drawTetris(board, figure, figureX, figureY, figureColors[figureType]);
+        GFX_flush();
+        needRedraw = 0;
+    }
 }

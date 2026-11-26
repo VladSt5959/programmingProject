@@ -93,8 +93,4 @@ USB serial stdio is enabled and UART stdio is disabled in the CMake configuratio
     └── ownLibs/            Button reader and photoresistor support
 ```
 
-## Current implementation notes
 
-- The clock uses the firmware build date and time as its starting point, then advances using the Pico's uptime timer. It has no battery-backed RTC or network time sync, so it does not preserve accurate time after power-off and can start behind the upload time.
-- Battery sensing is disabled in `settings.c`; the battery row reports that it is not connected. The main menu's `BAT 87%` text is currently a placeholder, not a measurement.
-- In the current `gameboyv2.c`, the Race and Settings menu actions appear to be routed to each other's state handlers. Check the `action == 2` / `action == 3` branches and the `state == 3` / `state == 5` branches if those selections open the wrong screen.
